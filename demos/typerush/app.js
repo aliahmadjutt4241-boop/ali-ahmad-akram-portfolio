@@ -1,0 +1,26 @@
+(()=>{'use strict';
+const $=id=>document.getElementById(id);const KEY='ali-keysprint-best-v1';
+const passages=[
+ 'The best way to learn something new is to be curious enough to try. Every small project teaches a lesson, every mistake uncovers a better idea, and every new day is an opportunity to keep improving your skills.',
+ 'Technology becomes meaningful when it solves a real problem. Good software is not only about clever code; it is about understanding people, making thoughtful choices, and building useful things that last.',
+ 'A calm mind and a steady rhythm are powerful tools. Focus on the next word rather than the final score. Accuracy will build confidence, confidence will build speed, and consistent practice makes progress possible.',
+ 'Creative thinking and logical reasoning work well together. When you explore different approaches, ask good questions, and test your assumptions, even a simple idea can become a helpful digital product.',
+ 'There is something exciting about starting with a blank page. You imagine a possibility, plan a few steps, write the first line, and slowly turn an abstract thought into something real that others can explore.'
+];
+let index=0;let duration=60;let startTime=null;let timer=null;let completed=false;let best=0;
+try{const b=Number(localStorage.getItem(KEY));if(Number.isFinite(b)&&b>=0)best=b}catch(e){}
+function paintBest(){$('personalBest').textContent=best||'—'}
+function notify(message){const e=$('toast');e.textContent=message;e.classList.add('active');clearTimeout(notify.t);notify.t=setTimeout(()=>e.classList.remove('active'),2200)}
+const formatTime=n=>Math.max(0,Math.ceil(n));
+function stats(){const value=$('typingInput').value;const passage=passages[index];let correct=0;for(let i=0;i<value.length;i++)if(value[i]===passage[i])correct++;const elapsed=startTime?Math.min(duration,(performance.now()-startTime)/1000):0;const minutes=elapsed/60;const wpm=elapsed>0?Math.round(correct/5/minutes):0;const accuracy=value.length?Math.round(correct/value.length*100):100;$('wpm').firstChild.textContent=String(Math.max(0,wpm));$('accuracy').firstChild.textContent=String(accuracy);$('typedChars').firstChild.textContent=String(value.length);return {wpm,accuracy,correct,elapsed}}
+function renderPassage(){const content=passages[index];const value=$('typingInput').value;const fragment=document.createDocumentFragment();for(let i=0;i<content.length;i++){const c=document.createElement('span');c.textContent=content[i];if(i<value.length)c.className=value[i]===content[i]?'correct':'incorrect';else if(i===value.length)c.className='current';fragment.append(c)}$('passage').replaceChildren(fragment);$('passageAccessible').textContent='Type this passage: '+content;$('passageNumber').textContent=String(index+1).padStart(2,'0')+' / '+String(passages.length).padStart(2,'0')}
+function stopTimer(){clearInterval(timer);timer=null}
+function finish(){if(completed)return;completed=true;stopTimer();$('typingInput').disabled=true;const {wpm,accuracy}=stats();if(wpm>best){best=wpm;try{localStorage.setItem(KEY,String(best))}catch(e){}paintBest();$('statusText').textContent=`New personal best! ${wpm} WPM with ${accuracy}% accuracy. Amazing work.`;notify('New personal best!')}else $('statusText').textContent=`Time's up! You typed ${wpm} WPM at ${accuracy}% accuracy. Hit Restart to try again.`;$('timeLeft').firstChild.textContent='0';}
+function tick(){if(!startTime||completed)return;const remain=Math.max(0,duration-(performance.now()-startTime)/1000);$('timeLeft').firstChild.textContent=String(formatTime(remain));stats();if(remain<=0)finish()}
+function reset(focus=false){stopTimer();startTime=null;completed=false;$('typingInput').disabled=false;$('typingInput').value='';$('typingInput').maxLength=passages[index].length;$('timeLeft').firstChild.textContent=String(duration);$('wpm').firstChild.textContent='0';$('accuracy').firstChild.textContent='100';$('typedChars').firstChild.textContent='0';$('typedChars').lastChild.textContent='/ '+passages[index].length;$('statusText').textContent='Ready when you are. Your first keystroke starts the clock.';renderPassage();if(focus)$('typingInput').focus()}
+$('typingInput').addEventListener('paste',e=>{e.preventDefault();notify('Type the text manually to measure your speed fairly')});
+$('typingInput').addEventListener('input',()=>{if(completed)return;if(!startTime&&$('typingInput').value.length){startTime=performance.now();timer=setInterval(tick,100);$('statusText').textContent='You are doing great. Keep going!'}renderPassage();stats();if($('typingInput').value.length>=passages[index].length){const result=stats();completed=true;stopTimer();$('typingInput').disabled=true;if(result.wpm>best){best=result.wpm;try{localStorage.setItem(KEY,String(best))}catch(e){}paintBest()}$('statusText').textContent=`Passage complete! ${result.wpm} WPM, ${result.accuracy}% accuracy. Choose a new passage to keep practicing.`;notify('Passage completed!')}});
+$('restart').addEventListener('click',()=>reset(true));$('nextPassage').addEventListener('click',()=>{index=(index+1)%passages.length;reset(true)});
+document.querySelectorAll('[name=duration]').forEach(r=>r.addEventListener('change',()=>{duration=Number(document.querySelector('[name=duration]:checked').value);reset()}));
+paintBest();reset();
+})();
